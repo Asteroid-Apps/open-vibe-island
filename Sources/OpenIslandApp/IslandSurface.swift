@@ -48,7 +48,7 @@ enum IslandSurface: Equatable {
         case .waitingForAnswer:
             return session.questionPrompt != nil
         case .completed:
-            return true
+            return session.tool != .t3Code || session.t3Metadata?.hasUnreadCompletion != false
         case .running:
             return false
         }

@@ -16,6 +16,7 @@ public enum AgentTool: String, CaseIterable, Codable, Sendable {
     case ohMyPi
     case zcode
     case hermes
+    case t3Code
 
     public var displayName: String {
         switch self {
@@ -47,6 +48,8 @@ public enum AgentTool: String, CaseIterable, Codable, Sendable {
             "Oh My Pi"
         case .zcode:
             "ZCode"
+        case .t3Code:
+            "T3 Code"
         case .hermes:
             "Hermes"
         }
@@ -82,6 +85,8 @@ public enum AgentTool: String, CaseIterable, Codable, Sendable {
             "OMP"
         case .zcode:
             "ZCODE"
+        case .t3Code:
+            "T3"
         case .hermes:
             "HERMES"
         }
@@ -117,6 +122,7 @@ public enum AgentTool: String, CaseIterable, Codable, Sendable {
         case .ohMyPi:     "#f472b6"
         case .zcode:      "#2dd4bf"
         case .hermes:     "#38bdf8"
+        case .t3Code:     "#f97316"
         }
     }
 }
@@ -179,6 +185,9 @@ public struct JumpTarget: Equatable, Codable, Sendable {
     /// `"Codex.app"`, the jump uses the `codex://threads/<id>` URL scheme
     /// to open the conversation directly rather than just activating the app.
     public var codexThreadID: String?
+    /// Native T3 Code thread identity, used for conversation navigation.
+    public var t3ThreadID: String?
+    public var t3EnvironmentID: String?
 
     public init(
         terminalApp: String,
@@ -190,7 +199,9 @@ public struct JumpTarget: Equatable, Codable, Sendable {
         tmuxTarget: String? = nil,
         tmuxSocketPath: String? = nil,
         warpPaneUUID: String? = nil,
-        codexThreadID: String? = nil
+        codexThreadID: String? = nil,
+        t3ThreadID: String? = nil,
+        t3EnvironmentID: String? = nil
     ) {
         self.terminalApp = terminalApp
         self.workspaceName = workspaceName
@@ -202,7 +213,16 @@ public struct JumpTarget: Equatable, Codable, Sendable {
         self.tmuxSocketPath = tmuxSocketPath
         self.warpPaneUUID = warpPaneUUID
         self.codexThreadID = codexThreadID
+        self.t3ThreadID = t3ThreadID
+        self.t3EnvironmentID = t3EnvironmentID
     }
+}
+
+public struct NativeApprovalOption: Equatable, Identifiable, Codable, Sendable {
+    public var id: String
+    public var label: String
+    public var warning: String?
+    public init(id: String, label: String, warning: String? = nil) { self.id = id; self.label = label; self.warning = warning }
 }
 
 public struct PermissionRequest: Equatable, Identifiable, Codable, Sendable {
@@ -215,6 +235,7 @@ public struct PermissionRequest: Equatable, Identifiable, Codable, Sendable {
     public var toolName: String?
     public var toolUseID: String?
     public var suggestedUpdates: [ClaudePermissionUpdate]
+    public var nativeOptions: [NativeApprovalOption]?
     public var requiresTerminalApproval: Bool
 
     public init(
@@ -227,7 +248,8 @@ public struct PermissionRequest: Equatable, Identifiable, Codable, Sendable {
         toolName: String? = nil,
         toolUseID: String? = nil,
         suggestedUpdates: [ClaudePermissionUpdate] = [],
-        requiresTerminalApproval: Bool = false
+        requiresTerminalApproval: Bool = false,
+        nativeOptions: [NativeApprovalOption]? = nil
     ) {
         self.id = id
         self.title = title
@@ -239,6 +261,7 @@ public struct PermissionRequest: Equatable, Identifiable, Codable, Sendable {
         self.toolUseID = toolUseID
         self.suggestedUpdates = suggestedUpdates
         self.requiresTerminalApproval = requiresTerminalApproval
+        self.nativeOptions = nativeOptions
     }
 }
 
@@ -366,6 +389,7 @@ public enum ApprovalAction: Sendable {
     case deny
     case allowOnce
     case allowWithUpdates([ClaudePermissionUpdate])
+    case nativeDecision(String)
 }
 
 public enum PermissionResolution: Equatable, Codable, Sendable {
@@ -379,6 +403,50 @@ public enum PermissionResolution: Equatable, Codable, Sendable {
         case .deny:
             false
         }
+    }
+}
+
+/// Presentation metadata from T3 Code's native thread API, independent of its provider.
+public struct T3SessionMetadata: Equatable, Codable, Sendable {
+    public var lastAssistantMessage: String?
+    public var lastUserPrompt: String?
+    public var initialUserPrompt: String?
+    public var currentTool: String?
+    public var model: String?
+    public var status: String?
+    public var hasUnreadCompletion: Bool?
+    public var projectName: String?
+    public var projectIcon: T3ProjectIcon?
+    public var projectIconImageData: Data?
+
+    public init(
+        lastAssistantMessage: String? = nil,
+        lastUserPrompt: String? = nil,
+        initialUserPrompt: String? = nil,
+        currentTool: String? = nil,
+        model: String? = nil,
+        status: String? = nil,
+        hasUnreadCompletion: Bool? = nil,
+        projectName: String? = nil,
+        projectIcon: T3ProjectIcon? = nil,
+        projectIconImageData: Data? = nil
+    ) {
+        self.lastAssistantMessage = lastAssistantMessage
+        self.lastUserPrompt = lastUserPrompt
+        self.initialUserPrompt = initialUserPrompt
+        self.currentTool = currentTool
+        self.model = model
+        self.status = status
+        self.hasUnreadCompletion = hasUnreadCompletion
+        self.projectName = projectName
+        self.projectIcon = projectIcon
+        self.projectIconImageData = projectIconImageData
+    }
+
+    public var isEmpty: Bool {
+        hasUnreadCompletion == nil && projectIcon == nil && projectIconImageData == nil
+            && [lastAssistantMessage, lastUserPrompt, initialUserPrompt, currentTool, model, status, projectName]
+            .allSatisfy { $0?.isEmpty != false }
     }
 }
 
@@ -405,6 +473,7 @@ public struct AgentSession: Equatable, Identifiable, Codable, Sendable {
     public var cursorMetadata: CursorSessionMetadata?
     public var piMetadata: PiSessionMetadata?
     public var hermesMetadata: HermesSessionMetadata?
+    public var t3Metadata: T3SessionMetadata?
 
     /// Whether this session originates from a remote (SSH) connection.
     public var isRemote: Bool = false
@@ -461,7 +530,8 @@ public struct AgentSession: Equatable, Identifiable, Codable, Sendable {
         openCodeMetadata: OpenCodeSessionMetadata? = nil,
         cursorMetadata: CursorSessionMetadata? = nil,
         piMetadata: PiSessionMetadata? = nil,
-        hermesMetadata: HermesSessionMetadata? = nil
+        hermesMetadata: HermesSessionMetadata? = nil,
+        t3Metadata: T3SessionMetadata? = nil
     ) {
         self.id = id
         self.title = title
@@ -482,6 +552,7 @@ public struct AgentSession: Equatable, Identifiable, Codable, Sendable {
         self.cursorMetadata = cursorMetadata
         self.piMetadata = piMetadata
         self.hermesMetadata = hermesMetadata
+        self.t3Metadata = t3Metadata
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -504,6 +575,7 @@ public struct AgentSession: Equatable, Identifiable, Codable, Sendable {
         case cursorMetadata
         case piMetadata
         case hermesMetadata
+        case t3Metadata
     }
 
     public init(from decoder: any Decoder) throws {
@@ -527,6 +599,7 @@ public struct AgentSession: Equatable, Identifiable, Codable, Sendable {
         cursorMetadata = try container.decodeIfPresent(CursorSessionMetadata.self, forKey: .cursorMetadata)
         piMetadata = try container.decodeIfPresent(PiSessionMetadata.self, forKey: .piMetadata)
         hermesMetadata = try container.decodeIfPresent(HermesSessionMetadata.self, forKey: .hermesMetadata)
+        t3Metadata = try container.decodeIfPresent(T3SessionMetadata.self, forKey: .t3Metadata)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -550,6 +623,7 @@ public struct AgentSession: Equatable, Identifiable, Codable, Sendable {
         try container.encodeIfPresent(cursorMetadata, forKey: .cursorMetadata)
         try container.encodeIfPresent(piMetadata, forKey: .piMetadata)
         try container.encodeIfPresent(hermesMetadata, forKey: .hermesMetadata)
+        try container.encodeIfPresent(t3Metadata, forKey: .t3Metadata)
     }
 }
 
@@ -575,6 +649,7 @@ public extension AgentSession {
     /// signals; non-hook sessions use process polling.
     var isVisibleInIsland: Bool {
         if isDemoSession { return true }
+        if tool == .t3Code { return attachmentState == .attached && !isSessionEnded }
         if phase.requiresAttention { return true }
         // Codex.app sessions stay visible while the desktop app is running,
         // except when the thread was archived/ended or the row has gone stale.
@@ -592,14 +667,23 @@ public extension AgentSession {
     }
 
     var currentToolName: String? {
-        codexMetadata?.currentTool ?? claudeMetadata?.currentTool ?? openCodeMetadata?.currentTool ?? cursorMetadata?.currentTool ?? piMetadata?.currentTool
+        if tool == .t3Code { return t3Metadata?.currentTool }
+        return codexMetadata?.currentTool ?? claudeMetadata?.currentTool ?? openCodeMetadata?.currentTool ?? cursorMetadata?.currentTool ?? piMetadata?.currentTool
     }
 
     var lastAssistantMessageText: String? {
+        if tool == .t3Code { return t3Metadata?.lastAssistantMessage }
         if let message = codexMetadata?.lastAssistantMessage ?? claudeMetadata?.lastAssistantMessage ?? geminiMetadata?.lastAssistantMessage {
             return message
         }
         return openCodeMetadata?.lastAssistantMessage ?? cursorMetadata?.lastAssistantMessage ?? piMetadata?.lastAssistantMessage ?? hermesMetadata?.lastAssistantMessage
+    }
+
+    /// Human-readable agent output, without tool previews or status placeholders.
+    var islandAssistantPreviewText: String? {
+        guard let message = completionAssistantMessageText?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !message.isEmpty else { return nil }
+        return message
     }
 
     var completionAssistantMessageText: String? {
@@ -621,6 +705,7 @@ public extension AgentSession {
     }
 
     var latestUserPromptText: String? {
+        if tool == .t3Code { return t3Metadata?.lastUserPrompt }
         if let prompt = codexMetadata?.lastUserPrompt ?? claudeMetadata?.lastUserPrompt ?? geminiMetadata?.lastUserPrompt {
             return prompt
         }
@@ -628,6 +713,7 @@ public extension AgentSession {
     }
 
     var initialUserPromptText: String? {
+        if tool == .t3Code { return t3Metadata?.initialUserPrompt }
         if let prompt = codexMetadata?.initialUserPrompt ?? claudeMetadata?.initialUserPrompt ?? geminiMetadata?.initialUserPrompt {
             return prompt
         }

@@ -133,37 +133,44 @@ struct OverlayPanelControllerTests {
     }
 
     @Test
-    func notchedDisplayClosedWidthWrapsPhysicalNotchWithFixedReserve() {
-        // v6 MacBook layout: outer width = 44 + physical notch + 44.
+    func notchedDisplayClosedWidthMatchesPhysicalNotch() {
         let width = OverlayPanelController.closedPanelWidth(
             notchWidth: 224,
             isNotchedDisplay: true,
             notchStatus: .closed
         )
-        #expect(width == CGFloat(224 + 88))
+        #expect(width == CGFloat(224))
     }
 
     @Test
-    func externalDisplayClosedWidthUsesFixedHitArea() {
-        // v6 external layout: fluid in SwiftUI, but the controller uses a
-        // generous fixed hit-area so hover/click works without knowing the
-        // live content width.
+    func externalDisplayClosedWidthMatchesQuietPlaceholder() {
         let width = OverlayPanelController.closedPanelWidth(
             notchWidth: 0,
             isNotchedDisplay: false,
             notchStatus: .closed
         )
-        #expect(width == CGFloat(360))
+        #expect(width == CGFloat(70))
     }
 
     @Test
-    func poppingStatusAddsHoverBudget() {
+    func poppingStatusDoesNotWidenTheClosedNotch() {
         let width = OverlayPanelController.closedPanelWidth(
             notchWidth: 224,
             isNotchedDisplay: true,
             notchStatus: .popping
         )
-        #expect(width == CGFloat(224 + 88 + 18))
+        #expect(width == CGFloat(224))
+    }
+
+    @Test
+    func quietClosedHoverAreaDoesNotIncludeTheFormerActivityWings() {
+        let notch = NSRect(x: 100, y: 200, width: 224, height: 32)
+        let width = OverlayPanelController.closedPanelWidth(notchWidth: notch.width, isNotchedDisplay: true, notchStatus: .closed)
+        let target = OverlayPanelController.closedSurfaceRect(notchRect: notch, closedWidth: width)
+        #expect(target == notch)
+        #expect(OverlayPanelController.rectContainsIncludingEdges(target, point: NSPoint(x: 200, y: 216)))
+        #expect(!OverlayPanelController.rectContainsIncludingEdges(target, point: NSPoint(x: 90, y: 216)))
+        #expect(!OverlayPanelController.rectContainsIncludingEdges(target, point: NSPoint(x: 334, y: 216)))
     }
 
     @Test

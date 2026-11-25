@@ -31,6 +31,13 @@ struct AppModelSessionListTests {
     }
 
     @Test
+    func notificationsRemainMutedWithLegacyUnmutedPreferences() {
+        UserDefaults.standard.set(false, forKey: "overlay.sound.muted")
+        defer { UserDefaults.standard.removeObject(forKey: "overlay.sound.muted") }
+        #expect(AppModel().isSoundMuted)
+    }
+
+    @Test
     func islandListSessionsOnlyIncludeLiveAttachedSessions() {
         let now = Date(timeIntervalSince1970: 2_000)
         let model = AppModel()
@@ -358,6 +365,76 @@ struct AppModelSessionListTests {
 
         #expect(model.islandSessionSections.map(\.id) == ["state-done"])
         #expect(model.islandSessionSections.first?.sessions.first?.id == "old-done")
+    }
+
+    @Test
+    func attentionOrderingUsesStatusThenLatestEventAcrossNativeEnvironments() {
+        let now = Date()
+        let model = AppModel()
+        model.updateAppearancePreferences(for: .topBar) {
+            $0.sessionSort = .attention
+            $0.sessionGroup = .none
+        }
+        let sessions = [
+            nativeStatusSession(id: "approval-old", phase: .waitingForApproval, date: now.addingTimeInterval(-900)),
+            nativeStatusSession(id: "approval-new", phase: .waitingForApproval, date: now.addingTimeInterval(-800)),
+            nativeStatusSession(id: "answer-old", phase: .waitingForAnswer, date: now.addingTimeInterval(-700)),
+            nativeStatusSession(id: "answer-new", phase: .waitingForAnswer, date: now.addingTimeInterval(-600)),
+            nativeStatusSession(id: "done-old", phase: .completed, date: now.addingTimeInterval(-500)),
+            nativeStatusSession(id: "done-new", phase: .completed, date: now.addingTimeInterval(-400)),
+            nativeStatusSession(id: "running-old", phase: .running, date: now.addingTimeInterval(-300)),
+            nativeStatusSession(id: "running-new", phase: .running, date: now.addingTimeInterval(-200)),
+            nativeStatusSession(id: "idle-old", phase: .completed, date: now.addingTimeInterval(-100), read: true),
+            nativeStatusSession(id: "idle-new", phase: .completed, date: now.addingTimeInterval(-1), read: true),
+        ]
+        model.state = SessionState(sessions: Array(sessions.reversed()))
+        model.overlayPlacementDiagnostics = placementDiagnostics(mode: .topBar)
+        #expect(model.islandListSessions.map(\.id) == [
+            "approval-new", "approval-old", "answer-new", "answer-old", "done-new", "done-old",
+            "running-new", "running-old", "idle-new", "idle-old"
+        ])
+    }
+
+    @Test
+    func nativeReadCompletionMovesBelowRunningAndIntoIdleSection() {
+        let now = Date()
+        let model = AppModel()
+        model.updateAppearancePreferences(for: .topBar) {
+            $0.sessionSort = .attention
+            $0.sessionGroup = .state
+        }
+        var done = nativeStatusSession(id: "done", phase: .completed, date: now)
+        let running = nativeStatusSession(id: "running", phase: .running, date: now.addingTimeInterval(-10))
+        model.state = SessionState(sessions: [running, done])
+        model.overlayPlacementDiagnostics = placementDiagnostics(mode: .topBar)
+        #expect(model.islandSessionSections.map(\.id) == ["state-done", "state-running"])
+        done.t3Metadata?.hasUnreadCompletion = false
+        model.state = SessionState(sessions: [running, done])
+        #expect(model.islandSessionSections.map(\.id) == ["state-running", "state-idle"])
+        #expect(model.islandListSessions.map(\.id) == ["running", "done"])
+    }
+
+    @Test
+    func tiedStatusAndEventTimeHaveDeterministicIdentityOrder() {
+        let now = Date()
+        let model = AppModel()
+        model.updateAppearancePreferences(for: .topBar) { $0.sessionSort = .attention; $0.sessionGroup = .none }
+        var one = nativeStatusSession(id: "a", phase: .running, date: now)
+        var two = nativeStatusSession(id: "b", phase: .running, date: now)
+        one.title = "Same title"
+        two.title = "Same title"
+        model.state = SessionState(sessions: [two, one])
+        model.overlayPlacementDiagnostics = placementDiagnostics(mode: .topBar)
+        #expect(model.islandListSessions.map(\.id) == ["a", "b"])
+    }
+
+    private func nativeStatusSession(id: String, phase: SessionPhase, date: Date, read: Bool = false) -> AgentSession {
+        AgentSession(id: id, title: id, tool: .t3Code, origin: .live, attachmentState: .attached,
+                     phase: phase, summary: phase.displayName, updatedAt: date,
+                     jumpTarget: JumpTarget(terminalApp: "T3 Code", workspaceName: id, paneTitle: id,
+                                            t3ThreadID: id, t3EnvironmentID: id.contains("old") ? "container" : "local"),
+                     t3Metadata: T3SessionMetadata(status: phase == .running ? "running" : "completed",
+                                                  hasUnreadCompletion: phase == .completed ? !read : nil))
     }
 
     @Test
@@ -1494,7 +1571,6 @@ struct AppModelSessionListTests {
     @MainActor
     func notificationMeasuredHeightClearedWhenSameSessionCardContentChanges() {
         let model = AppModel()
-        model.isSoundMuted = true
 
         var session = AgentSession(
             id: "same-session",
@@ -1538,7 +1614,6 @@ struct AppModelSessionListTests {
     @MainActor
     func hoveredNotificationCardIsNotReplacedByAnotherNotification() {
         let model = AppModel()
-        model.isSoundMuted = true
 
         var currentSession = AgentSession(
             id: "current-session",

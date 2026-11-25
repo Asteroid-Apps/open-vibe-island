@@ -121,7 +121,7 @@ final class ProcessMonitoringCoordinator {
             var hadTrackedLiveSessions = false
 
             while !Task.isCancelled {
-                let liveSessions = self.state.sessions.filter(\.isTrackedLiveSession)
+                let liveSessions = self.state.sessions.filter { $0.isTrackedLiveSession && $0.tool != .t3Code }
                 let hasTrackedLiveSessions = !liveSessions.isEmpty
                 let shouldRunFullReconcile = Self.shouldPerformFullMonitorReconcile(
                     now: Date(),
@@ -243,7 +243,7 @@ final class ProcessMonitoringCoordinator {
         // launch even when no sessions exist yet, so the app-server
         // coordinator can connect and report threads.
         let isCodexAppRunning = reconcileCodexAppRunningState(observedCodexAppRunning)
-        let sessions = local.sessions.filter(\.isTrackedLiveSession)
+        let sessions = local.sessions.filter { $0.isTrackedLiveSession && $0.tool != .t3Code }
         guard !sessions.isEmpty else {
             // Flush local changes only if something actually changed.
             if local != originalState {
@@ -295,7 +295,7 @@ final class ProcessMonitoringCoordinator {
         // use them directly to avoid blocking the main thread with AppleScript calls.
         let resolverJumpTargets = preResolvedJumpTargets
             ?? terminalJumpTargetResolver.resolveJumpTargets(
-                for: local.sessions.filter(\.isTrackedLiveSession),
+                for: local.sessions.filter { $0.isTrackedLiveSession && $0.tool != .t3Code },
                 activeProcesses: activeProcesses
             )
         if !resolverJumpTargets.isEmpty {
@@ -387,6 +387,8 @@ final class ProcessMonitoringCoordinator {
         case let .piSessionMetadataUpdated(payload):
             payload.sessionID
         case let .hermesSessionMetadataUpdated(payload):
+            payload.sessionID
+        case let .t3SessionMetadataUpdated(payload):
             payload.sessionID
         case let .sessionHeartbeat(payload):
             payload.sessionID
@@ -1409,6 +1411,9 @@ final class ProcessMonitoringCoordinator {
     // MARK: - Display helpers
 
     func liveAttachmentKey(for session: AgentSession) -> String? {
+        if session.tool == .t3Code {
+            return session.id
+        }
         guard let jumpTarget = session.jumpTarget else {
             return nil
         }
@@ -1656,6 +1661,8 @@ final class ProcessMonitoringCoordinator {
             return "Oh My Pi \(session.id.prefix(8))"
         case .zcode:
             return "ZCode \(session.id.prefix(8))"
+        case .t3Code:
+            return "T3 Code \(session.id.prefix(8))"
         case .hermes:
             return "Hermes \(session.id.prefix(8))"
         }

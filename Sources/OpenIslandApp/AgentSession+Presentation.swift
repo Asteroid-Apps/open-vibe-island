@@ -14,7 +14,29 @@ enum IslandSessionPresence: Equatable {
     case inactive
 }
 
+/// Visual priority shared by list ordering and state-grouped sections.
+enum IslandAgentStatus: Int, CaseIterable {
+    case needsApproval
+    case needsAnswer
+    case done
+    case running
+    case idle
+}
+
 extension AgentSession {
+    func islandStatus(at referenceDate: Date, completedStaleThreshold: TimeInterval) -> IslandAgentStatus {
+        switch phase {
+        case .waitingForApproval: return .needsApproval
+        case .waitingForAnswer: return .needsAnswer
+        case .running: return .running
+        case .completed:
+            let idle = tool == .t3Code
+                ? islandPresence(at: referenceDate) == .inactive
+                : isStaleCompletedForIsland(at: referenceDate, threshold: completedStaleThreshold)
+            return idle ? .idle : .done
+        }
+    }
+
     private static let collapsedDetailAgeThreshold: TimeInterval = 20 * 60
     private static let islandActivityThreshold: TimeInterval = 20 * 60
     static let staleCompletedDisplayThreshold: TimeInterval = 5 * 60
@@ -87,6 +109,16 @@ extension AgentSession {
     }
 
     var spotlightStatusLabel: String {
+        if tool == .t3Code, !phase.requiresAttention {
+            if phase == .completed, t3Metadata?.hasUnreadCompletion == false { return "Idle" }
+            switch t3Metadata?.status {
+            case "completed": return "Completed"
+            case "failed": return "Failed"
+            case "interrupted", "cancelled": return "Interrupted"
+            case "idle": return "Idle"
+            default: break
+            }
+        }
         switch phase {
         case .running:
             if let currentTool = spotlightCurrentToolLabel {
@@ -238,6 +270,8 @@ extension AgentSession {
             return "ZCode"
         case .hermes:
             return "Hermes"
+        case .t3Code:
+            return "T3 Code"
         }
     }
 
@@ -345,6 +379,10 @@ extension AgentSession {
             return .active
         }
 
+        if tool == .t3Code {
+            return t3Metadata?.status == "idle" || t3Metadata?.hasUnreadCompletion == false ? .inactive : .active
+        }
+
         if referenceDate.timeIntervalSince(islandActivityDate) <= Self.islandActivityThreshold {
             return .active
         }
@@ -358,7 +396,7 @@ extension AgentSession {
         at referenceDate: Date,
         threshold: TimeInterval = Self.staleCompletedDisplayThreshold
     ) -> Bool {
-        phase == .completed
+        tool != .t3Code && phase == .completed
             && referenceDate.timeIntervalSince(islandActivityDate) >= threshold
     }
 

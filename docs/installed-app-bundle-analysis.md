@@ -6,7 +6,7 @@ Reviewed on 2026-04-02 against the locally installed app:
 - version: `1.0.15`
 - bundle id: `app.vibeisland.macos`
 - analysis branch: `docs/analyze-installed-app-bundle`
-- analysis worktree: `/Users/wangruobing/Personal/vibe-island-app-analysis`
+- analysis worktree: `/Users/developer/Personal/vibe-island-app-analysis`
 
 ## Scope
 
@@ -140,7 +140,7 @@ This proves the product is already multi-tool and not Codex-only.
 
 Claude is configured with:
 
-- `statusLine.command = /Users/wangruobing/.vibe-island/bin/vibe-island-statusline`
+- `statusLine.command = /Users/developer/.vibe-island/bin/vibe-island-statusline`
 
 That script reads Claude JSON from stdin and writes:
 
@@ -288,7 +288,7 @@ Confirmed from `Info.plist`, embedded frameworks, and binary strings:
 - release notes:
   - `https://dl.vibeisland.app/release-notes/`
 - Sentry ingestion:
-  - `https://375861f9d4f0bfd47ed9f9b44b1872fd@o4510782780014592.ingest.us.sentry.io/4510782787289088`
+  - `https://public-key@sentry.example.com/project-id`
 - PostHog analytics:
   - `https://us.i.posthog.com/capture/`
 - Anthropic OAuth usage:

@@ -250,6 +250,8 @@ final class OverlayPanelController {
 
         let inClosedSurfaceArea = isPointInClosedSurfaceArea(screenLocation)
 
+        model.overlay.isPointerOverClosedSurface = model.notchStatus == .closed && inClosedSurfaceArea
+
         if model.notchStatus == .closed && inClosedSurfaceArea {
             scheduleHoverOpen()
         } else if model.notchStatus == .closed && !inClosedSurfaceArea {
@@ -377,8 +379,7 @@ final class OverlayPanelController {
             return Self.rectContainsIncludingEdges(closedSurfaceRect, point: screenPoint)
         }
 
-        let expandedNotch = notchRect.insetBy(dx: -20, dy: -10)
-        return Self.rectContainsIncludingEdges(expandedNotch, point: screenPoint)
+        return Self.rectContainsIncludingEdges(notchRect, point: screenPoint)
     }
 
     func isPointInExpandedArea(_ screenPoint: NSPoint) -> Bool {
@@ -445,23 +446,14 @@ final class OverlayPanelController {
             && point.y <= rect.maxY
     }
 
-    /// Hit-area width of the v6 closed pill.
-    ///
-    /// - On a MacBook (physical notch present) the pill is locked to
-    ///   `44 + notchWidth + 44`, per the v6 design spec.
-    /// - On an external display the width is content-driven; we return a
-    ///   generous fixed hit-area so hover / click detection works without
-    ///   the controller having to introspect live session state.
+    /// Match the quiet closed surface exactly; no hidden activity wings or
+    /// extra popping budget should intercept nearby menu-bar interactions.
     nonisolated static func closedPanelWidth(
         notchWidth: CGFloat,
         isNotchedDisplay: Bool,
         notchStatus: NotchStatus
     ) -> CGFloat {
-        let popBonus: CGFloat = notchStatus == .popping ? 18 : 0
-        if isNotchedDisplay {
-            return notchWidth + 88 + popBonus
-        }
-        return 360 + popBonus
+        isNotchedDisplay ? notchWidth : 70
     }
 
     private func closedSurfaceRect(for model: AppModel) -> NSRect? {

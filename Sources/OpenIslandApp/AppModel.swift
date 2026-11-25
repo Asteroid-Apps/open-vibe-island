@@ -15,7 +15,6 @@ extension Notification.Name {
 @MainActor
 @Observable
 final class AppModel {
-    private static let soundMutedDefaultsKey = "overlay.sound.muted"
     private static let showDockIconDefaultsKey = "app.showDockIcon"
     private static let hapticFeedbackEnabledDefaultsKey = "app.hapticFeedbackEnabled"
     /// When true, click-outside does not dismiss the notch while any session
@@ -70,6 +69,13 @@ final class AppModel {
     let discovery = SessionDiscoveryCoordinator()
     let monitoring = ProcessMonitoringCoordinator()
     let codexAppServer = CodexAppServerCoordinator()
+    let t3Code = T3CodeCoordinator()
+    var t3CodeEnabled = UserDefaults.standard.object(forKey: "integration.t3Code.enabled") as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(t3CodeEnabled, forKey: "integration.t3Code.enabled")
+            if t3CodeEnabled { t3Code.start() } else { t3Code.stop() }
+        }
+    }
     let updateChecker = UpdateChecker()
 
     var notchStatus: NotchStatus {
@@ -175,7 +181,7 @@ final class AppModel {
     /// Drives the "configure agents" empty-state prompts in the island and
     /// the settings window.
     var hasAnyInstalledAgent: Bool {
-        hooks.claudeHooksInstalled
+        t3Code.isConnected || hooks.claudeHooksInstalled
             || hooks.codexHooksInstalled
             || hooks.cursorHooksInstalled
             || hooks.qoderHooksInstalled
@@ -338,18 +344,7 @@ final class AppModel {
     }
     @ObservationIgnored
     private var isApplyingLaunchAtLogin = false
-    var isSoundMuted = false {
-        didSet {
-            guard isSoundMuted != oldValue else {
-                return
-            }
-
-            UserDefaults.standard.set(isSoundMuted, forKey: Self.soundMutedDefaultsKey)
-            lastActionMessage = isSoundMuted
-                ? "Island sound notifications muted."
-                : "Island sound notifications enabled."
-        }
-    }
+    let isSoundMuted = true
     var selectedSoundName: String = NotificationSoundService.defaultSoundName {
         didSet {
             guard selectedSoundName != oldValue else { return }
@@ -658,7 +653,6 @@ final class AppModel {
             Self.completionReplyEnabledDefaultsKey: false,
             Self.suppressFrontmostNotificationsDefaultsKey: true,
         ])
-        isSoundMuted = UserDefaults.standard.bool(forKey: Self.soundMutedDefaultsKey)
         selectedSoundName = NotificationSoundService.selectedSoundName
         showDockIcon = UserDefaults.standard.bool(forKey: Self.showDockIconDefaultsKey)
         hapticFeedbackEnabled = UserDefaults.standard.bool(forKey: Self.hapticFeedbackEnabledDefaultsKey)
@@ -693,7 +687,7 @@ final class AppModel {
             self?.activeIslandCardSession
         }
         overlay.isSoundMutedAccessor = { [weak self] in
-            self?.isSoundMuted ?? false
+            self?.isSoundMuted ?? true
         }
         overlay.ignoresPointerExitAccessor = { [weak self] in
             self?.ignoresPointerExitDuringHarness ?? false
@@ -729,6 +723,24 @@ final class AppModel {
                     ingress: .rollout
                 )
             }
+        }
+
+        t3Code.onEvent = { [weak self] event in
+            self?.applyTrackedEvent(event, updateLastActionMessage: false, ingress: .bridge)
+        }
+        t3Code.isSessionTracked = { [weak self] id in self?.state.session(id: id) != nil }
+        t3Code.onAttachmentStatesChanged = { [weak self] updates in
+            guard let self else { return }
+            let removed = Set(updates.compactMap { id, attachment in
+                attachment == .detached && self.state.session(id: id)?.tool == .t3Code ? id : nil
+            })
+            if !removed.isEmpty {
+                self.state = SessionState(sessions: self.state.sessions.filter { !removed.contains($0.id) })
+            }
+            _ = self.state.reconcileAttachmentStates(updates)
+            self.reconcileIslandSurfaceAfterStateChange()
+            self.synchronizeSelection()
+            self.refreshOverlayPlacementIfVisible()
         }
 
         codexAppServer.onEvent = { [weak self] event in
@@ -850,36 +862,35 @@ final class AppModel {
     }
 
     private func sortIslandSessions(_ sessions: [AgentSession]) -> [AgentSession] {
-        switch islandSessionSort {
-        case .attention:
-            return sessions
-        case .lastUpdate:
-            return sessions.sorted { lhs, rhs in
-                if lhs.islandActivityDate == rhs.islandActivityDate {
-                    return lhs.title.localizedStandardCompare(rhs.title) == .orderedAscending
-                }
+        let now = Date.now
+        let threshold = completedStaleThreshold.seconds
+        let attentionFirst = islandSessionSort == .attention
+        return sessions.sorted { lhs, rhs in
+            if attentionFirst {
+                let left = lhs.islandStatus(at: now, completedStaleThreshold: threshold).rawValue
+                let right = rhs.islandStatus(at: now, completedStaleThreshold: threshold).rawValue
+                if left != right { return left < right }
+            }
+            if lhs.islandActivityDate != rhs.islandActivityDate {
                 return lhs.islandActivityDate > rhs.islandActivityDate
             }
+            let titleOrder = lhs.title.localizedStandardCompare(rhs.title)
+            return titleOrder == .orderedSame ? lhs.id < rhs.id : titleOrder == .orderedAscending
         }
     }
 
     private func stateGroupedSections(for sessions: [AgentSession]) -> [IslandSessionSection] {
-        let definitions: [(id: String, title: String, include: (AgentSession) -> Bool)] = [
-            ("approval", "island.section.needsApproval", { $0.phase == .waitingForApproval }),
-            ("answer", "island.section.needsAnswer", { $0.phase == .waitingForAnswer }),
-            ("running", "island.section.inProgress", { $0.phase == .running }),
-            ("done", "island.section.justDone", { [completedStaleThreshold] session in
-                session.phase == .completed
-                    && !session.isStaleCompletedForIsland(at: .now, threshold: completedStaleThreshold.seconds)
-            }),
-            ("idle", "island.section.idle", { [completedStaleThreshold] session in
-                session.phase == .completed
-                    && session.isStaleCompletedForIsland(at: .now, threshold: completedStaleThreshold.seconds)
-            }),
+        let now = Date.now
+        let threshold = completedStaleThreshold.seconds
+        let definitions: [(status: IslandAgentStatus, id: String, title: String)] = [
+            (.needsApproval, "approval", "island.section.needsApproval"),
+            (.needsAnswer, "answer", "island.section.needsAnswer"),
+            (.done, "done", "island.section.justDone"),
+            (.running, "running", "island.section.inProgress"),
+            (.idle, "idle", "island.section.idle"),
         ]
-
         return definitions.compactMap { definition in
-            let list = sessions.filter(definition.include)
+            let list = sessions.filter { $0.islandStatus(at: now, completedStaleThreshold: threshold) == definition.status }
             guard !list.isEmpty else { return nil }
             return IslandSessionSection(id: "state-\(definition.id)", title: definition.title, sessions: list)
         }
@@ -1162,6 +1173,7 @@ final class AppModel {
                 hooks.startCodexUsageMonitoringIfNeeded()
             }
             updateChecker.startIfNeeded()
+            if t3CodeEnabled { t3Code.start() }
 
         } else {
             isResolvingInitialLiveSessions = false
@@ -1357,10 +1369,6 @@ final class AppModel {
         NotificationCenter.default.post(name: .openIslandSelectSetupTab, object: nil)
     }
 
-    func toggleSoundMuted() {
-        isSoundMuted.toggle()
-    }
-
     func approveFocusedPermission(_ approved: Bool) {
         guard let session = focusedSession else {
             return
@@ -1442,6 +1450,10 @@ final class AppModel {
         }
 
         let resolution = permissionResolution(for: approved)
+        if session.tool == .t3Code {
+            send(.resolvePermission(sessionID: session.id, resolution: resolution), userMessage: "Responding to T3 Code permission…")
+            return
+        }
         dismissNotificationSurfaceIfPresent(for: sessionID)
         state.resolvePermission(sessionID: session.id, resolution: resolution)
         synchronizeSelection()
@@ -1464,6 +1476,17 @@ final class AppModel {
         let message: String
 
         switch action {
+        case let .nativeDecision(decision):
+            guard session.tool == .t3Code else { return }
+            Task {
+                do {
+                    try await t3Code.resolveNativePermission(sessionID: session.id, decision: decision)
+                    dismissNotificationSurfaceIfPresent(for: session.id)
+                } catch {
+                    lastActionMessage = "T3 Code approval failed: \(error.localizedDescription)"
+                }
+            }
+            return
         case .deny:
             resolution = .deny(message: "Permission denied in Open Island.", interrupt: false)
             message = "Denying permission for \(session.title)."
@@ -1475,6 +1498,10 @@ final class AppModel {
             message = "Always allowing for \(session.title)."
         }
 
+        if session.tool == .t3Code {
+            send(.resolvePermission(sessionID: session.id, resolution: resolution), userMessage: message)
+            return
+        }
         dismissNotificationSurfaceIfPresent(for: sessionID)
         state.resolvePermission(sessionID: session.id, resolution: resolution)
         synchronizeSelection()
@@ -1497,6 +1524,10 @@ final class AppModel {
             return
         }
 
+        if session.tool == .t3Code {
+            send(.answerQuestion(sessionID: session.id, response: answer), userMessage: "Sending answer to T3 Code…")
+            return
+        }
         dismissNotificationSurfaceIfPresent(for: sessionID)
         state.answerQuestion(sessionID: session.id, response: answer)
         synchronizeSelection()
@@ -1509,6 +1540,18 @@ final class AppModel {
     }
 
     func replyToSession(_ session: AgentSession, text: String) {
+        if session.tool == .t3Code {
+            Task {
+                do {
+                    try await t3Code.sendReply(sessionID: session.id, text: text)
+                    dismissNotificationSurfaceIfPresent(for: session.id)
+                    lastActionMessage = "Sent reply to T3 Code."
+                } catch {
+                    lastActionMessage = "T3 Code reply failed: \(error.localizedDescription)"
+                }
+            }
+            return
+        }
         dismissNotificationSurfaceIfPresent(for: session.id)
         synchronizeSelection()
         refreshOverlayPlacementIfVisible()
@@ -1536,7 +1579,16 @@ final class AppModel {
             }
 
             do {
-                try await self.bridgeClient.send(command)
+                switch command {
+                case let .resolvePermission(sessionID, resolution) where self.state.session(id: sessionID)?.tool == .t3Code:
+                    try await self.t3Code.resolvePermission(sessionID: sessionID, resolution: resolution)
+                    self.dismissNotificationSurfaceIfPresent(for: sessionID)
+                case let .answerQuestion(sessionID, response) where self.state.session(id: sessionID)?.tool == .t3Code:
+                    try await self.t3Code.answerQuestion(sessionID: sessionID, response: response)
+                    self.dismissNotificationSurfaceIfPresent(for: sessionID)
+                default:
+                    try await self.bridgeClient.send(command)
+                }
             } catch {
                 self.lastActionMessage = "Failed to send bridge command: \(error.localizedDescription)"
             }
@@ -1613,6 +1665,7 @@ final class AppModel {
                 case let .cursorSessionMetadataUpdated(p): return p.sessionID
                 case let .piSessionMetadataUpdated(p): return p.sessionID
                 case let .hermesSessionMetadataUpdated(p): return p.sessionID
+                case let .t3SessionMetadataUpdated(p): return p.sessionID
                 case let .sessionHeartbeat(p): return p.sessionID
                 case let .actionableStateResolved(p): return p.sessionID
                 }
@@ -1908,6 +1961,8 @@ final class AppModel {
                 return "\(state.session(id: payload.sessionID)?.tool.displayName ?? "Pi") is running \(currentTool)."
             }
             return payload.piMetadata.lastAssistantMessage ?? "Pi session metadata updated."
+        case let .t3SessionMetadataUpdated(payload):
+            return payload.t3Metadata.lastAssistantMessage ?? "T3 Code session metadata updated."
         case let .hermesSessionMetadataUpdated(payload):
             return payload.hermesMetadata.lastAssistantMessage ?? "Hermes session metadata updated."
         case let .sessionHeartbeat(payload):

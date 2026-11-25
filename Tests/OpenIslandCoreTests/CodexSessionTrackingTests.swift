@@ -693,7 +693,7 @@ struct CodexSessionTrackingTests {
             for: [
                 AgentSession(
                     id: "019ef332-b281-7292-874f-4cf8787fb4b8",
-                    title: "Codex · hacking-activity",
+                    title: "Codex · sample-project",
                     tool: .codex,
                     origin: .live,
                     attachmentState: .attached,
@@ -702,9 +702,9 @@ struct CodexSessionTrackingTests {
                     updatedAt: .now,
                     jumpTarget: JumpTarget(
                         terminalApp: "Codex.app",
-                        workspaceName: "hacking-activity",
+                        workspaceName: "sample-project",
                         paneTitle: "Codex",
-                        workingDirectory: "/Users/admin/GoCode/hacking-activity",
+                        workingDirectory: "/Users/admin/GoCode/sample-project",
                         codexThreadID: "019ef332-b281-7292-874f-4cf8787fb4b8"
                     )
                 ),
@@ -1176,7 +1176,7 @@ struct CodexSessionTrackingTests {
             sessionMetaLine(
                 sessionID: "codex-session-1",
                 timestamp: "2026-04-02T04:03:44.000Z",
-                cwd: "/Users/wangruobing/Personal/open-island"
+                cwd: "/Users/developer/Personal/open-island"
             ),
             rolloutLine(
                 timestamp: "2026-04-02T04:03:45.000Z",
@@ -1208,7 +1208,7 @@ struct CodexSessionTrackingTests {
             sessionMetaLine(
                 sessionID: "codex-session-stale",
                 timestamp: "2026-03-30T04:03:44.000Z",
-                cwd: "/Users/wangruobing/Personal/old-repo"
+                cwd: "/Users/developer/Personal/old-repo"
             ),
         ]
 
@@ -1288,6 +1288,23 @@ struct CodexSessionTrackingTests {
     }
 
     @Test
+    func codexRolloutDiscoveryExcludesOnlyExactT3Originator() throws {
+        let rootURL = FileManager.default.temporaryDirectory.appendingPathComponent("open-island-t3-origin-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+        let now = Date.now
+        let origins = ["T3 Code", "T3 Code CLI", "Codex Desktop", "codex-tui"]
+        for (index, originator) in origins.enumerated() {
+            let file = rootURL.appendingPathComponent("rollout-\(index).jsonl")
+            try sessionMetaLine(sessionID: "session-\(index)", timestamp: "2026-11-24T12:00:00Z", cwd: "/tmp/project", originator: originator)
+                .appending("\n").write(to: file, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.modificationDate: now], ofItemAtPath: file.path)
+        }
+        let records = CodexRolloutDiscovery(rootURL: rootURL, fileManager: .default, maxAge: 86_400, maxFiles: 10).discoverRecentSessions(now: now)
+        #expect(Set(records.map(\.sessionID)) == Set(["session-1", "session-2", "session-3"]))
+    }
+
+    @Test
     func codexRolloutDiscoveryStreamsRolloutsLargerThanReadChunk() throws {
         // Pins streaming behavior across read-chunk boundaries. The
         // discovery path used to slurp the whole rollout via
@@ -1308,7 +1325,7 @@ struct CodexSessionTrackingTests {
             sessionMetaLine(
                 sessionID: "codex-session-large",
                 timestamp: "2026-04-02T04:03:44.000Z",
-                cwd: "/Users/wangruobing/Personal/open-island"
+                cwd: "/Users/developer/Personal/open-island"
             )
         ]
         // Pad with enough no-op `agent_message` lines to push the
@@ -1386,7 +1403,7 @@ struct CodexSessionTrackingTests {
             sessionMetaLine(
                 sessionID: "codex-session-trailing",
                 timestamp: "2026-04-02T04:03:44.000Z",
-                cwd: "/Users/wangruobing/Personal/open-island"
+                cwd: "/Users/developer/Personal/open-island"
             ),
             rolloutLine(
                 timestamp: "2026-04-02T04:03:45.000Z",
@@ -1447,7 +1464,7 @@ struct CodexSessionTrackingTests {
             sessionMetaLine(
                 sessionID: "codex-session-incremental",
                 timestamp: "2026-04-02T04:03:44.000Z",
-                cwd: "/Users/wangruobing/Personal/open-island"
+                cwd: "/Users/developer/Personal/open-island"
             ),
             rolloutLine(
                 timestamp: "2026-04-02T04:03:45.000Z",
@@ -1521,7 +1538,7 @@ struct CodexSessionTrackingTests {
             sessionMetaLine(
                 sessionID: "codex-session-truncated",
                 timestamp: "2026-04-02T04:03:44.000Z",
-                cwd: "/Users/wangruobing/Personal/open-island"
+                cwd: "/Users/developer/Personal/open-island"
             ),
             rolloutLine(
                 timestamp: "2026-04-02T04:03:45.000Z",
@@ -1547,7 +1564,7 @@ struct CodexSessionTrackingTests {
             sessionMetaLine(
                 sessionID: "codex-session-truncated",
                 timestamp: "2026-04-02T04:03:44.000Z",
-                cwd: "/Users/wangruobing/Personal/open-island"
+                cwd: "/Users/developer/Personal/open-island"
             ),
             rolloutLine(
                 timestamp: "2026-04-02T04:03:48.000Z",
@@ -1583,7 +1600,7 @@ struct CodexSessionTrackingTests {
             sessionMetaLine(
                 sessionID: "codex-session-rewritten",
                 timestamp: "2026-04-02T04:03:44.000Z",
-                cwd: "/Users/wangruobing/Personal/open-island"
+                cwd: "/Users/developer/Personal/open-island"
             ),
             rolloutLine(
                 timestamp: "2026-04-02T04:03:45.000Z",
@@ -1637,7 +1654,7 @@ struct CodexSessionTrackingTests {
             sessionMetaLine(
                 sessionID: "codex-session-read-volume",
                 timestamp: "2026-04-02T04:03:44.000Z",
-                cwd: "/Users/wangruobing/Personal/open-island"
+                cwd: "/Users/developer/Personal/open-island"
             ),
         ]
         let padding = String(repeating: "x", count: 512)

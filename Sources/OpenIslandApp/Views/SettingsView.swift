@@ -278,39 +278,11 @@ struct SoundSettingsPane: View {
 
     private var lang: LanguageManager { model.lang }
 
-    private var availableSounds: [String] {
-        NotificationSoundService.availableSounds()
-    }
-
     var body: some View {
         Form {
             Section(lang.t("settings.sound.notifications")) {
-                Toggle(lang.t("settings.sound.mute"), isOn: Binding(
-                    get: { model.isSoundMuted },
-                    set: { _ in model.toggleSoundMuted() }
-                ))
-            }
-
-            Section(lang.t("settings.sound.selectSound")) {
-                List(availableSounds, id: \.self) { name in
-                    Button {
-                        model.selectedSoundName = name
-                        NotificationSoundService.play(name)
-                    } label: {
-                        HStack {
-                            Text(name)
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            if name == model.selectedSoundName {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(.blue)
-                                    .fontWeight(.semibold)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
+                Text("Open Island is always muted.")
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
@@ -438,6 +410,34 @@ struct SetupSettingsPane: View {
         Form {
             if !model.hasAnyInstalledAgent {
                 emptyStateBanner
+            }
+
+            Section("T3 Code") {
+                Toggle("Connect to T3 Code", isOn: Binding(get: { model.t3CodeEnabled }, set: { model.t3CodeEnabled = $0 }))
+                if model.t3CodeEnabled, model.t3Code.requiresForegroundReadAccess {
+                    Text("Allow Accessibility access to mark completed agents idle only when their chat is visible in the focused T3 window. Until then, new completions stay marked done.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("Allow focused-chat detection…") {
+                        T3ForegroundThread.requestAccessibilityAccess()
+                    }
+                }
+                Text(model.t3Code.statusMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if let message = model.t3Code.savedEnvironmentStatusMessage {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if model.t3CodeEnabled, model.t3Code.requiresSavedConnectionAccess {
+                    Button("Connect saved environments") {
+                        Task { await model.t3Code.refreshSavedEnvironments(allowKeychainPrompt: true) }
+                    }
+                }
+                Text("Tracks local and saved T3 environments, including container connections. Approvals, questions, and replies use each environment’s native API. No agent hooks are installed.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             claudeConfigDirectorySection

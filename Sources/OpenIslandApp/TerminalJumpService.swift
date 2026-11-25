@@ -79,6 +79,11 @@ struct TerminalJumpService {
             aliases: ["wezterm"]
         ),
         TerminalAppDescriptor(
+            displayName: "T3 Code",
+            bundleIdentifier: "com.t3tools.t3code",
+            aliases: ["t3 code", "t3 code.app", "t3 code (beta)", "t3 code (beta).app"]
+        ),
+        TerminalAppDescriptor(
             displayName: "Codex.app",
             bundleIdentifier: "com.openai.codex",
             aliases: ["codex.app"]
@@ -372,6 +377,19 @@ struct TerminalJumpService {
             case "ai.opencode.desktop":
                 try openAction(["-b", "ai.opencode.desktop"])
                 return "Activated OpenCode.app."
+            case "com.t3tools.t3code":
+                if let threadID = target.t3ThreadID, !threadID.isEmpty,
+                   let environmentID = target.t3EnvironmentID, !environmentID.isEmpty {
+                    // Encode each identity as one path component; IDs must not inject
+                    // extra routes, queries, or fragments into the native deep link.
+                    let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~"))
+                    let environment = environmentID.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
+                    let thread = threadID.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
+                    try openAction(["-b", "com.t3tools.t3code", "t3code://threads/\(environment)/\(thread)"])
+                    return "Focused the T3 Code conversation."
+                }
+                try openAction(["-b", "com.t3tools.t3code"])
+                return "Activated T3 Code."
             case "com.openai.codex":
                 // If we have a thread ID, use the codex:// URL scheme to
                 // open the specific conversation directly.  Otherwise just

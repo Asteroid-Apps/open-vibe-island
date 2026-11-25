@@ -782,7 +782,7 @@ struct TerminalSessionAttachmentProbeTests {
                 phase: .running,
                 terminalSessionID: "8B3E80D7-26C5-457E-A390-2F0B8B584EF2",
                 paneTitle: "codex ~/p/open-island",
-                workingDirectory: "/Users/wangruobing/personal/open-island",
+                workingDirectory: "/Users/developer/personal/open-island",
                 workspaceName: "open-island"
             ),
             ghosttySession(
@@ -791,7 +791,7 @@ struct TerminalSessionAttachmentProbeTests {
                 phase: .completed,
                 terminalSessionID: "448D7E28-24FB-46F1-9504-C252F97926C1",
                 paneTitle: "codex ~/p/open-island",
-                workingDirectory: "/Users/wangruobing/personal/open-island",
+                workingDirectory: "/Users/developer/personal/open-island",
                 workspaceName: "open-island"
             ),
             ghosttySession(
@@ -800,7 +800,7 @@ struct TerminalSessionAttachmentProbeTests {
                 phase: .completed,
                 terminalSessionID: "1FF8D5F5-7C34-4CC7-BF93-4F67DA197E5D",
                 paneTitle: "codex ~/p/open-island",
-                workingDirectory: "/Users/wangruobing/personal/open-island",
+                workingDirectory: "/Users/developer/personal/open-island",
                 workspaceName: "open-island"
             ),
             ghosttySession(
@@ -809,7 +809,7 @@ struct TerminalSessionAttachmentProbeTests {
                 phase: .completed,
                 terminalSessionID: "BAA8EBC8-DC99-4720-9F14-A6BAF55DFC62",
                 paneTitle: "codex ~/p/open-island",
-                workingDirectory: "/Users/wangruobing/personal/open-island",
+                workingDirectory: "/Users/developer/personal/open-island",
                 workspaceName: "open-island"
             ),
             ghosttySession(
@@ -818,7 +818,7 @@ struct TerminalSessionAttachmentProbeTests {
                 phase: .completed,
                 terminalSessionID: "DD5A5488-E789-4326-BA5C-6A0BDFB0A51F",
                 paneTitle: "codex ~/p/vibe-island",
-                workingDirectory: "/Users/wangruobing/personal/vibe-island",
+                workingDirectory: "/Users/developer/personal/vibe-island",
                 workspaceName: "vibe-island"
             ),
             AgentSession(
@@ -834,7 +834,7 @@ struct TerminalSessionAttachmentProbeTests {
                     terminalApp: "Ghostty",
                     workspaceName: "open-island",
                     paneTitle: "codex ~/p/open-island",
-                    workingDirectory: "/Users/wangruobing/personal/open-island",
+                    workingDirectory: "/Users/developer/personal/open-island",
                     terminalSessionID: "ghostty-approval"
                 ),
                 codexMetadata: CodexSessionMetadata(
@@ -850,27 +850,27 @@ struct TerminalSessionAttachmentProbeTests {
                 [
                     .init(
                         sessionID: "8B3E80D7-26C5-457E-A390-2F0B8B584EF2",
-                        workingDirectory: "/Users/wangruobing/personal/open-island",
+                        workingDirectory: "/Users/developer/personal/open-island",
                         title: "codex ~/p/open-island"
                     ),
                     .init(
                         sessionID: "448D7E28-24FB-46F1-9504-C252F97926C1",
-                        workingDirectory: "/Users/wangruobing/personal/open-island",
+                        workingDirectory: "/Users/developer/personal/open-island",
                         title: "codex ~/p/open-island"
                     ),
                     .init(
                         sessionID: "1FF8D5F5-7C34-4CC7-BF93-4F67DA197E5D",
-                        workingDirectory: "/Users/wangruobing/personal/open-island",
+                        workingDirectory: "/Users/developer/personal/open-island",
                         title: "~/p/open-island"
                     ),
                     .init(
                         sessionID: "BAA8EBC8-DC99-4720-9F14-A6BAF55DFC62",
-                        workingDirectory: "/Users/wangruobing/personal/open-island",
+                        workingDirectory: "/Users/developer/personal/open-island",
                         title: "~/p/open-island"
                     ),
                     .init(
                         sessionID: "DD5A5488-E789-4326-BA5C-6A0BDFB0A51F",
-                        workingDirectory: "/Users/wangruobing/personal/vibe-island",
+                        workingDirectory: "/Users/developer/personal/vibe-island",
                         title: "~/p/vibe-island"
                     ),
                 ],

@@ -558,3 +558,96 @@ For iTerm, Terminal, and Ghostty the process additionally runs an AppleScript qu
 | [`Sources/OpenIslandApp/Resources/open-island-pi.ts`](../Sources/OpenIslandApp/Resources/open-island-pi.ts) | Shared Pi/OMP runtime extension |
 | [`Sources/OpenIslandCore/BridgeServer.swift`](../Sources/OpenIslandCore/BridgeServer.swift) | Unix socket server — handles incoming hook payloads |
 | [`Sources/OpenIslandCore/BridgeTransport.swift`](../Sources/OpenIslandCore/BridgeTransport.swift) | Protocol codec and envelope types |
+
+
+## T3 Code native integration
+
+T3 Code is a desktop harness rather than a hook source. Open Island connects to
+its authenticated local orchestration API; it does not install provider hooks
+or modify T3's application bundle. This preserves T3 thread identity across its
+underlying providers and avoids treating T3-hosted Codex as Codex Desktop.
+
+Enable or disable the connection in **Settings → Setup → T3 Code**. The adapter
+discovers the local runtime under `~/.t3/userdata/server-runtime.json` and uses
+the installed T3 CLI to issue a short-lived session scoped to orchestration read
+and operate. Locally discovered runtime origins must be loopback addresses.
+
+Saved direct connections are read from T3 Desktop's encrypted
+`~/.t3/userdata/connection-catalog.json`, using its macOS Keychain safeStorage
+key. This includes saved LAN/container and HTTPS bearer connections. Credentials
+stay in memory; the catalog is never modified, and disconnect never revokes a
+credential belonging to T3 Desktop. Disabled environments are excluded. Each
+environment gets its own snapshot, stream, request queue, and native action
+routing; session IDs and navigation retain both environment and thread identity.
+Catalog changes are checked in the background every ten seconds. If Keychain
+access is unavailable, Settings offers **Connect saved environments** to request
+access explicitly. SSH-only and T3 Connect relay-only routes are not supported
+by this direct-connection adapter.
+
+Native shell snapshots and events drive session state, prompt and completion
+text, approvals, and questions. A completed latest run does not by itself mean
+the thread is done: native activity status, active/thread waits, pending subagents,
+and awaited background work keep the thread running. Non-awaited persistent
+commands and passive watches do not hold completion. Waiting work uses the same
+indicator, title color, and ordering class as running; actual user questions and
+approvals keep their attention states. Responses and completion replies go back through
+the native API. Thread navigation uses
+`t3code://threads/<environment-id>/<thread-id>`. No terminal keystroke injection
+is used for T3 replies.
+
+List rows and automatically opened attention rows use the same view. They show
+the latest nonempty assistant message as unboxed text, truncated to six rendered
+lines and aligned with the title after its status indicator. Titles fill the
+available width; per-agent duration labels are omitted. The left slot uses the
+native project's icon, emoji, or monogram and T3's selected color. Status appears
+to the right of the title: running uses a spinning gray dashed ring, idle has no
+indicator, and approval/answer/unread-done retain pink/amber/green. Attention
+ordering is approval, answer, unread done, running, then idle; each status uses
+the most recent event first. State grouping uses the same classification,
+including T3's native completion read state. Project appearance updates propagate without resetting
+messages or native questions. Missing explicit icons use T3's authenticated
+favicon service and then its exact default monogram/color rules; remote paths are
+resolved by their own environment, never by the local filesystem. Tool invocations and generic status placeholders are not
+used as message substitutes; rows without an assistant message have no empty
+message panel. Pending questions/approvals and enabled completion replies retain
+their native controls.
+
+Sidebar rows are published directly from the shell snapshot before any thread
+history is fetched. Completed/idle history uses the shell's latest visible
+message when available; missing message previews, active turns, pending requests,
+and observed completions hydrate in the background with at most four detail
+requests in flight. Streamed status and settlement take precedence over delayed
+detail responses. Shell-only updates preserve already hydrated question and approval controls.
+
+The connection owns T3 session liveness. Generic terminal/process discovery must
+not end these sessions. Disconnection makes sessions stale, and reconnecting
+reconciles them with the authoritative server state. Existing completions on
+initial connection must not replay as new completion notifications. Failed
+interactive responses retain their pending cards until the server confirms a
+resolution.
+
+This adapter follows the local T3 orchestration protocol (version 2). A future
+T3 protocol change may require an adapter update; unsupported responses should
+report a connection error rather than silently clear pending interactions.
+
+T3-owned provider processes are handled by this adapter. Open Island's hook CLI
+ignores the explicit T3 Codex originator and Claude entrypoint markers to avoid
+brokering the same permission twice. Disabling the T3 connection disables Open
+Island control for these T3-owned runs; standalone provider sessions retain
+their existing hook behavior.
+
+See [T3 Code verification](t3-code-verification.md) for the installed-app checks
+and the limits of the live verification.
+
+T3 sidebar placement owns visibility: settled, archived, deleted, hidden subagent,
+and side-chat threads are excluded. Snoozed threads stay hidden unless a request
+wakes them in T3. Unsettled sidebar threads remain visible regardless of activity
+age, and retain their native running, waiting, completed, or idle status.
+Settling removes the row from both active and recent island lists; unsettling
+restores it from T3's next authoritative update.
+
+A completed T3 thread is shown as done until its native `lastVisitedAt` reaches
+or passes `latestRunCompletedAt`. It then stays visible as idle. A visit during
+the run does not acknowledge its later result; the next completion becomes done
+again. Read-state updates also dismiss the corresponding completion notification
+without replaying it. Missing or invalid timestamps preserve the done indicator.

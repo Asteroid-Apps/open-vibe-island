@@ -18,7 +18,7 @@ struct HermesTmuxRuntimeContextTests {
         let payload = HermesHookPayload(
             hookEventName: .postLLMCall,
             sessionID: "s1",
-            cwd: "/Users/user/Codings/binance-strategy-platform-agent",
+            cwd: "/Users/user/Codings/sample-agent-project",
             extra: .object(["model": .string("GLM-5.3-Flash"), "platform": .string("tui")])
         )
 
@@ -31,18 +31,18 @@ struct HermesTmuxRuntimeContextTests {
             },
             tmuxResolverProvider: {
                 StubbedTmuxPaneResolver(
-                    paneTarget: "binance-strategy-platform-agent:5.0",
+                    paneTarget: "sample-agent-project:5.0",
                     hostApp: "VS Code"
                 )
             }
         )
 
-        #expect(resolved.tmuxTarget == "binance-strategy-platform-agent:5.0")
+        #expect(resolved.tmuxTarget == "sample-agent-project:5.0")
         #expect(resolved.terminalApp == "VS Code")
         #expect(resolved.terminalTTY == "/dev/ttys020")
         #expect(resolved.terminalSessionID == nil)
         #expect(resolved.terminalTitle == nil)
-        #expect(resolved.defaultJumpTarget.tmuxTarget == "binance-strategy-platform-agent:5.0")
+        #expect(resolved.defaultJumpTarget.tmuxTarget == "sample-agent-project:5.0")
         #expect(resolved.defaultJumpTarget.terminalApp == "VS Code")
     }
 
@@ -117,7 +117,7 @@ struct HermesTmuxRuntimeContextTests {
             tmuxResolverProvider: {
                 AncestorStubbedTmuxPaneResolver(
                     paneTTys: ["/dev/ttys014"],
-                    paneTarget: "binance-strategy-platform-agent:10.0",
+                    paneTarget: "sample-agent-project:10.0",
                     hostApp: "VS Code"
                 )
             },
@@ -125,7 +125,7 @@ struct HermesTmuxRuntimeContextTests {
             parentPIDProvider: { [42] }
         )
 
-        #expect(resolved.tmuxTarget == "binance-strategy-platform-agent:10.0")
+        #expect(resolved.tmuxTarget == "sample-agent-project:10.0")
         #expect(resolved.terminalApp == "VS Code")
         #expect(resolved.terminalTTY == "/dev/ttys014")
         #expect(resolved.terminalSessionID == nil)
@@ -156,7 +156,7 @@ struct HermesTmuxRuntimeContextTests {
             tmuxResolverProvider: {
                 PaneIDStubbedTmuxPaneResolver(
                     paneID: "%240",
-                    paneTarget: "binance-strategy-platform-agent:6.1",
+                    paneTarget: "sample-agent-project:6.1",
                     paneTTY: "/dev/ttys003",
                     hostApp: "VS Code"
                 )
@@ -171,7 +171,7 @@ struct HermesTmuxRuntimeContextTests {
             }
         )
 
-        #expect(resolved.tmuxTarget == "binance-strategy-platform-agent:6.1")
+        #expect(resolved.tmuxTarget == "sample-agent-project:6.1")
         #expect(resolved.terminalTTY == "/dev/ttys003")
         #expect(resolved.terminalApp == "VS Code")
         #expect(resolved.terminalSessionID == nil)

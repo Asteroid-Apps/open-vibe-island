@@ -101,6 +101,10 @@ struct OpenIslandApp: App {
         }
         .windowResizability(.contentMinSize)
         .commands {
+            CommandGroup(after: .sidebar) {
+                Button("Show Island") { appDelegate.model.showOverlay() }
+                    .keyboardShortcut("i", modifiers: [.command, .option])
+            }
             CommandGroup(replacing: .appSettings) {
                 Button("Settings…") {
                     openWindow(id: "settings")

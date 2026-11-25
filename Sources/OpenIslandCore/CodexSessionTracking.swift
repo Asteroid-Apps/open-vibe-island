@@ -644,7 +644,9 @@ public final class CodexRolloutDiscovery: @unchecked Sendable {
         snapshot: CodexRolloutSnapshot,
         sessionMeta: SessionMeta?
     ) -> CodexTrackedSessionRecord? {
-        guard let sessionMeta, !sessionMeta.isInternalReview else { return nil }
+        // T3-owned provider threads are represented by the native T3 integration.
+        // The exact originator is written by T3 at Codex app-server initialization.
+        guard let sessionMeta, !sessionMeta.isInternalReview, sessionMeta.originator != "T3 Code" else { return nil }
 
         let summary = snapshot.summary ?? sessionMeta.defaultSummary
         let updatedAt = snapshot.updatedAt ?? sessionMeta.timestamp ?? modifiedAt

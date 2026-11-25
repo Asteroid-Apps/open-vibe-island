@@ -22,6 +22,7 @@ CLI coding agents are powerful, but they pull attention away from the editor and
 
 | Agent | Status | Notes |
 |---|---|---|
+| **T3 Code** | Supported | Native API integration for local and saved direct environments (including containers), thread lifecycle, approvals, questions, replies, and desktop thread navigation |
 | **Claude Code** | Supported | Hook integration, JSONL session discovery, status line bridge, usage tracking |
 | **Codex** | Supported | Full hook integration (SessionStart, UserPromptSubmit, Stop), usage tracking |
 | **OpenCode** | Supported | CLI and Desktop JS plugin integration, permission/question flows, process detection |
@@ -51,9 +52,12 @@ CLI coding agents are powerful, but they pull attention away from the editor and
 ## Features
 
 - **Notch overlay** — sits in the notch area on notch Macs, falls back to a compact top-center bar on external displays or non-notch Macs
+- **Closed island** — quiet and the width of the physical notch, with no equalizer, label, or agent count; hover opens the agent list
+- **Session rows** — always expanded, with a project icon, title, and latest assistant message; click the entry to return to the session
+- **Island header** — plain usage and reset countdown text, plus a settings icon; no session totals or fixed usage-window duration
 - **Settings** — hook install/uninstall, usage dashboard, General, Display, Sound, Shortcuts, Lab, About
 - **Notification mode** — auto-height panel for permission requests and session events
-- **Notification sounds** — configurable system sounds with mute toggle
+- **Silent notifications** — notification sounds are always muted
 - **i18n** — English and Simplified Chinese
 - **Session discovery** — auto-discover from local transcripts, persist across launches
 - **Process discovery** — match active agents via `ps`/`lsof`
@@ -70,5 +74,5 @@ CLI coding agents are powerful, but they pull attention away from the editor and
 ## Future Directions
 
 - Warp precision jump support
-- Sound packs, themes, and onboarding polish
+- Themes and onboarding polish
 - Deeper terminal split targeting

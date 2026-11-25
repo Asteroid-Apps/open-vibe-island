@@ -10,6 +10,7 @@ final class OverlayUICoordinator {
     private static let notificationSurfaceAutoCollapseDelay: TimeInterval = 10
 
     var notchStatus: NotchStatus = .closed
+    var isPointerOverClosedSurface = false
     var notchOpenReason: NotchOpenReason?
     var islandSurface: IslandSurface = .sessionList()
     var isOverlayVisible: Bool { notchStatus != .closed }
@@ -85,7 +86,7 @@ final class OverlayUICoordinator {
     }
 
     private var isSoundMuted: Bool {
-        isSoundMutedAccessor?() ?? false
+        isSoundMutedAccessor?() ?? true
     }
 
     private var ignoresPointerExitDuringHarness: Bool {
@@ -181,6 +182,7 @@ final class OverlayUICoordinator {
     }
 
     func notchClose() {
+        isPointerOverClosedSurface = false
         transitionOverlay(
             to: .closed,
             reason: nil,

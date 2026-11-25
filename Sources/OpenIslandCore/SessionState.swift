@@ -74,7 +74,8 @@ public struct SessionState: Equatable, Sendable {
                 openCodeMetadata: payload.openCodeMetadata?.isEmpty == true ? nil : payload.openCodeMetadata,
                 cursorMetadata: payload.cursorMetadata?.isEmpty == true ? nil : payload.cursorMetadata,
                 piMetadata: payload.piMetadata?.isEmpty == true ? nil : payload.piMetadata,
-                hermesMetadata: payload.hermesMetadata?.isEmpty == true ? nil : payload.hermesMetadata
+                hermesMetadata: payload.hermesMetadata?.isEmpty == true ? nil : payload.hermesMetadata,
+                t3Metadata: payload.t3Metadata?.isEmpty == true ? nil : payload.t3Metadata
             )
             session.isRemote = payload.isRemote
             session.isHookManaged = payload.origin == .live
@@ -200,6 +201,19 @@ public struct SessionState: Equatable, Sendable {
             }
 
             session.hermesMetadata = payload.hermesMetadata.isEmpty ? nil : payload.hermesMetadata
+            if let jumpTarget = payload.jumpTarget {
+                session.jumpTarget = jumpTarget
+            }
+            session.updatedAt = payload.timestamp
+            upsert(session)
+
+        case let .t3SessionMetadataUpdated(payload):
+            guard var session = sessionsByID[payload.sessionID] else {
+                return
+            }
+
+            session.t3Metadata = payload.t3Metadata.isEmpty ? nil : payload.t3Metadata
+            if let title = payload.title { session.title = title }
             if let jumpTarget = payload.jumpTarget {
                 session.jumpTarget = jumpTarget
             }
@@ -415,7 +429,7 @@ public struct SessionState: Equatable, Sendable {
         for (id, var session) in sessionsByID {
             // Remote sessions have no local process — keep them alive as long
             // as the bridge is delivering hook events.
-            if session.isRemote {
+            if session.isRemote || session.tool == .t3Code {
                 continue
             }
 
@@ -541,7 +555,7 @@ public struct SessionState: Equatable, Sendable {
     public mutating func removeInvisibleSessions() -> Bool {
         let before = sessionsByID.count
         sessionsByID = sessionsByID.filter { _, session in
-            session.isVisibleInIsland
+            session.isVisibleInIsland || (session.tool == .t3Code && !session.isSessionEnded)
         }
         return sessionsByID.count != before
     }

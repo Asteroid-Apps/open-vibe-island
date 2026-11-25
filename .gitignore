@@ -26,3 +26,16 @@ output/
 *.tmp
 .worktrees/
 .air/
+
+# Local credentials and signing material
+.env
+.env.*
+!.env.example
+*.p12
+*.p8
+*.pem
+*.key
+*.mobileprovision
+credentials*.json
+*-credentials.json
+*service-account*.json

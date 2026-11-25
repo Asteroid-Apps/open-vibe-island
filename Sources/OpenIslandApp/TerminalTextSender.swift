@@ -18,6 +18,12 @@ struct TerminalTextSender {
         guard session.phase == .completed else { return false }
         guard let target = session.jumpTarget else { return false }
 
+        // Native T3 replies use its thread API, routed by AppModel.
+        if session.tool == .t3Code {
+            return session.attachmentState == .attached && !session.isSessionEnded
+                && target.t3ThreadID?.isEmpty == false && target.t3EnvironmentID?.isEmpty == false
+        }
+
         // tmux sessions: any terminal can receive send-keys.
         if target.tmuxTarget != nil { return true }
 

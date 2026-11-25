@@ -224,11 +224,18 @@ struct V6ClosedPill: View {
 
     /// Island surface fill — see `IslandBackgroundStyle`.
     var background: Color = V6Palette.ink
+    var showsActivity: Bool = true
 
     var body: some View {
-        switch layout {
-        case .external: externalBody
-        case .macbook:  macbookBody
+        if showsActivity {
+            switch layout {
+            case .external: externalBody
+            case .macbook:  macbookBody
+            }
+        } else {
+            V6ClosedPillShape()
+                .fill(background)
+                .frame(width: resolvedWidth, height: height)
         }
     }
 
@@ -242,6 +249,7 @@ struct V6ClosedPill: View {
     private static let innerGap: CGFloat = 6
 
     var resolvedWidth: CGFloat {
+        if !showsActivity { return layout == .macbook ? physicalNotchWidth : minWidth }
         switch layout {
         case .external:
             let glyphWidth: CGFloat = 24

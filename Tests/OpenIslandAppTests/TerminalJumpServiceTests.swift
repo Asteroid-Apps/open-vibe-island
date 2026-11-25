@@ -38,7 +38,7 @@ struct TerminalJumpServiceTests {
             terminalApp: "Ghostty",
             workspaceName: "open-island",
             paneTitle: "codex ~/p/open-island",
-            workingDirectory: "/Users/wangruobing/Personal/open-island",
+            workingDirectory: "/Users/developer/Personal/open-island",
             terminalSessionID: "448D7E28-24FB-46F1-9504-C252F97926C1"
         )
 
@@ -63,12 +63,12 @@ struct TerminalJumpServiceTests {
             terminalApp: "Ghostty",
             workspaceName: "open-island",
             paneTitle: "codex ~/p/open-island",
-            workingDirectory: "/Users/wangruobing/Personal/open-island"
+            workingDirectory: "/Users/developer/Personal/open-island"
         )
 
         let script = TerminalJumpService().ghosttyJumpScript(for: target)
 
-        #expect(script.contains("(working directory of aTerminal as text) is \"/Users/wangruobing/Personal/open-island\""))
+        #expect(script.contains("(working directory of aTerminal as text) is \"/Users/developer/Personal/open-island\""))
         #expect(script.contains("(name of aTerminal as text) contains \"codex ~/p/open-island\""))
         #expect(script.contains("if \"\" is \"\" then"))
     }
@@ -76,12 +76,14 @@ struct TerminalJumpServiceTests {
     @Test
     func ghosttyJumpIntegrationMatchesFocusedTerminalForLiveSurfaces() throws {
         guard ProcessInfo.processInfo.environment["OPEN_ISLAND_RUN_GHOSTTY_JUMP_INTEGRATION"] == "1" else {
-            try Test.cancel("Set OPEN_ISLAND_RUN_GHOSTTY_JUMP_INTEGRATION=1 to run live Ghostty jump verification.")
+            // Optional live check: Swift 6.2 Testing does not provide Test.cancel.
+            return
         }
 
         let terminals = try liveGhosttyTerminals()
         if terminals.isEmpty {
-            try Test.cancel("No live Ghostty terminals were found.")
+            // No live surface is available for this optional integration check.
+            return
         }
 
         let service = TerminalJumpService()
@@ -138,7 +140,7 @@ struct TerminalJumpServiceTests {
                 terminalApp: "Ghostty",
                 workspaceName: "open-island",
                 paneTitle: "Claude open-island",
-                workingDirectory: "/Users/wangruobing/Personal/open-island",
+                workingDirectory: "/Users/developer/Personal/open-island",
                 terminalTTY: "/dev/ttys002"
             )
         )

@@ -24,7 +24,7 @@ struct SessionStateTests {
                         terminalApp: "VS Code",
                         workspaceName: "jobfeed",
                         paneTitle: "Codex 019e9716",
-                        workingDirectory: "/Users/example/jobfeed"
+                        workingDirectory: "/Users/example/sample-app"
                     )
                 )
             )

@@ -12,9 +12,21 @@ public enum HookSkipConfiguration {
 
     /// Returns true when the provided environment explicitly requests hook no-op mode.
     /// 当传入环境显式要求跳过 hook 时返回 true。
-    public static func shouldSkipHooks(environment: [String: String]) -> Bool {
+    public static func shouldSkipHooks(environment: [String: String], source: String? = nil) -> Bool {
         isTruthy(environment[openIslandSkipKey])
             || isTruthy(environment[legacyVibeIslandSkipKey])
+            || isT3ControlledProvider(environment: environment, source: source)
+    }
+
+    /// T3 handles these providers through its native orchestration API. Letting
+    /// provider hooks block the same request would create two competing controllers.
+    /// Match only the explicit source and exact markers T3 sets at provider spawn.
+    public static func isT3ControlledProvider(environment: [String: String], source: String?) -> Bool {
+        switch source {
+        case "codex": environment["CODEX_INTERNAL_ORIGINATOR_OVERRIDE"] == "T3 Code"
+        case "claude": environment["CLAUDE_CODE_ENTRYPOINT"] == "t3-code"
+        default: false
+        }
     }
 
     /// Interprets common shell-friendly truthy values and treats everything else as false.
